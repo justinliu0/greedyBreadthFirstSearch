@@ -1,0 +1,38 @@
+.full-height {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;    
+}
+
+#grid {
+    display: grid; 
+    justify-content: center; 
+    align-content: center;   
+    gap: 4px; 
+}
+
+.box {
+    background-color: #ccc;
+    border: 2px solid #000;
+}
+
+.start {
+    background-color: #ff0000;
+}
+
+.goal {
+    background-color: #00cc00;
+}
+
+.wall {
+    background-color: #000;
+}
+
+.visited {
+    background-color: #aaaaee;
+}
+
+.path {
+    background-color: #ffee11;
+}
