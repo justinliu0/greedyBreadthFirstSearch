@@ -2,11 +2,14 @@ const runButton = document.getElementById("runButton");
 const setStart = document.getElementById("setStart");
 const setGoal = document.getElementById("setGoal");
 const setWall = document.getElementById("setWall");
+const moveNumber = document.getElementById("moveNumber");
 const gridSize = document.getElementById("gridSize");
 const applySize = document.getElementById("apply");
 const grid = document.getElementById("grid");
 
 let mode = "wall";
+let originalGoals = [];
+let fullPath = [];
 
 setWall.addEventListener("click", () => mode = "wall");
 setStart.addEventListener("click", () => mode = "start");
@@ -17,6 +20,9 @@ function createGrid(size) {
     grid.style.gridTemplateColumns = `repeat(${size}, 50px)`;
     grid.style.gridTemplateRows = `repeat(${size}, 50px)`;
 
+    originalGoals = [];
+    fullPath = [];
+
     for (let row = 0; row < size; row++) {
         for (let col = 0; col < size; col++) {
             const box = document.createElement("div");
@@ -26,15 +32,15 @@ function createGrid(size) {
 
             if (row === 0 && col === 0) {
                 box.classList.add("start");
-            }
-            else if (row === size - 1 && col === size - 1) {
+            } else if (row === size - 1 && col === size - 1) {
                 box.classList.add("goal");
+                originalGoals.push([row, col]);
             }
 
             box.addEventListener("click", () => {
                 clearPath();
-                
-                switch(mode) {
+
+                switch (mode) {
                     case "wall":
                         if (!box.classList.contains("start") && !box.classList.contains("goal")) {
                             box.classList.toggle("wall");
@@ -48,14 +54,19 @@ function createGrid(size) {
                         box.classList.add("start");
                         box.classList.remove("wall", "goal");
                         break;
-                    case "goal":
-                        const prevGoal = document.querySelector(".goal");
-                        if (prevGoal) {
-                            prevGoal.classList.remove("goal");
-                        }
-                        box.classList.add("goal");
-                        box.classList.remove("wall", "start");
-                        break;
+                        case "goal":
+                            if (box.classList.contains("goal")) {
+                                box.classList.remove("goal");
+                                originalGoals = originalGoals.filter(g => !(g[0] === row && g[1] === col));
+                            } else {
+                                box.classList.add("goal");
+                                box.classList.remove("wall", "start");
+
+                                if (!originalGoals.some(g => g[0] === row && g[1] === col)) {
+                                    originalGoals.push([row, col]);
+                                }
+                            }
+                            break;
                 }
             });
 
@@ -66,25 +77,23 @@ function createGrid(size) {
 
 function getGridSize() {
     let size = parseInt(gridSize.value);
-    if (size < 3) {
-        size = 3;
-    }
-    if (size > 16) {
-        size = 16;
-    }
+    if (isNaN(size)) size = 5;
+    if (size < 3) size = 3;
+    if (size > 16) size = 16;
     return size;
 }
 
 function clearPath() {
-    document.querySelectorAll(".visited, .path").forEach(box => {
-        box.classList.remove("visited", "path");
+    document.querySelectorAll(".visited, .path").forEach(b => {
+        b.classList.remove("visited", "path");
     });
 }
 
 function getGridArray() {
     const size = getGridSize();
-    const grid = [];
-    let start, goal;
+    const gridArr = [];
+    let start = null;
+    const goals = [];
 
     for (let row = 0; row < size; row++) {
         const r = [];
@@ -93,105 +102,151 @@ function getGridArray() {
             if (box.classList.contains("start")) {
                 r.push(3);
                 start = [row, col];
-            }
-            else if (box.classList.contains("goal")) {
+            } else if (box.classList.contains("goal")) {
                 r.push(2);
-                goal = [row, col];
-            }
-            else if (box.classList.contains("wall")) {
+                goals.push([row, col]);
+            } else if (box.classList.contains("wall")) {
                 r.push(1);
-            }
-            else {
+            } else {
                 r.push(0);
             }
         }
-        grid.push(r);
+        gridArr.push(r);
     }
-    return {grid, start, goal};
+
+    return { grid: gridArr, start, goals };
 }
 
-async function bfs() {
-    const {grid, start, goal} = getGridArray();
+async function bfs(start, maxMoves) {
+    const { grid, goals } = getGridArray();
     const size = getGridSize();
-    const visited = [];
-    const prev = [];
-    const adjacent = [
-        [0, 1],
-        [0, -1],
-        [1, 0],
-        [-1, 0]
-    ]
 
     clearPath();
 
-    for (let row = 0; row < size; row++) {
-        const r = [];
-        for (let col = 0; col < size; col++) {
-            r.push(false);
-        }
-        visited.push(r);
-    }
+    const visited = Array.from({ length: size }, () => Array(size).fill(false));
+    const prev = Array.from({ length: size }, () => Array(size).fill(null));
 
-    for (let row = 0; row < getGridSize(); row++) {
-        const r = [];
-        for (let col = 0; col < getGridSize(); col++) {
-            r.push(null);
-        }
-        prev.push(r);
-    }
+    const adjacent = [
+        [0, 1], 
+        [0, -1],
+        [1, 0], 
+        [-1, 0]
+    ];
 
-    const queue = [start];
+    const queue = [[start[0], start[1], 0]];
     visited[start[0]][start[1]] = true;
 
     while (queue.length > 0) {
-        const [row, col] = queue.shift();
+        const [row, col, dist] = queue.shift();
 
-        if (row === goal[0] && col === goal[1]) {
-            break;
+        if (goals.some(g => g[0] === row && g[1] === col)) {
+            const path = [];
+            let current = [row, col];
+
+            while (current) {
+                path.push(current);
+                current = prev[current[0]][current[1]];
+            }
+            path.reverse();
+
+            for (const [pr, pc] of path) {
+                const b = document.querySelector(`.box[data-row='${pr}'][data-col='${pc}']`);
+                if (!b.classList.contains("start") && !b.classList.contains("goal")) {
+                    b.classList.add("path");
+                    await new Promise(r => setTimeout(r, 40));
+                }
+            }
+
+            return { goalReached: [row, col], distanceUsed: dist, path };
         }
 
-        for (const [rowDelta, colDelta] of adjacent) {
-            const newRow = row + rowDelta;
-            const newCol = col + colDelta;
+        if (dist >= maxMoves) {
+            continue;
+        }
+
+        for (const [dr, dc] of adjacent) {
+            const nr = row + dr;
+            const nc = col + dc;
 
             if (
-                newRow >= 0 && newRow < size &&
-                newCol >= 0 && newCol < size &&
-                !visited[newRow][newCol] &&
-                grid[newRow][newCol] !== 1
+                nr >= 0 && nr < size &&
+                nc >= 0 && nc < size &&
+                !visited[nr][nc] &&
+                grid[nr][nc] !== 1
             ) {
-                queue.push([newRow, newCol]);
-                visited[newRow][newCol] = true;
-                prev[newRow][newCol] = [row, col];
+                visited[nr][nc] = true;
+                prev[nr][nc] = [row, col];
+                queue.push([nr, nc, dist + 1]);
 
-                const box = document.querySelector(`.box[data-row='${newRow}'][data-col='${newCol}']`);
-                if (!box.classList.contains("start") && !box.classList.contains("goal")) {
-                    box.classList.add("visited");
+                const b = document.querySelector(`.box[data-row='${nr}'][data-col='${nc}']`);
+                if (!b.classList.contains("start") && !b.classList.contains("goal")) {
+                    b.classList.add("visited");
                 }
-                await new Promise(r => setTimeout(r, 50));
+                await new Promise(r => setTimeout(r, 20));
             }
         }
     }
 
-    let path = [];
-    let current = goal;
+    return null;
+}
 
-    while (current) {
-        path.push(current);
-        current = prev[current[0]][current[1]];
+async function multiBFS() {
+    let { start, goals } = getGridArray();
+    let movesLeft = parseInt(moveNumber.value);
+    if (isNaN(movesLeft)) movesLeft = 0;
+    let currentPos = start;
+    fullPath = [];
+
+    while (movesLeft > 0 && goals.length > 0) {
+        const result = await bfs(currentPos, movesLeft);
+        if (!result) break;
+
+        const { goalReached, distanceUsed, path } = result;
+
+        for (const step of path) {
+            const key = step.join(",");
+            if (!fullPath.some(p => p.join(",") === key)) {
+                fullPath.push(step);
+            }
+        }
+
+        movesLeft -= distanceUsed;
+
+        goals = goals.filter(g => !(g[0] === goalReached[0] && g[1] === goalReached[1]));
+
+        const reachedBox = document.querySelector(`.box[data-row='${goalReached[0]}'][data-col='${goalReached[1]}']`);
+        if (reachedBox) reachedBox.classList.remove("goal");
+
+        currentPos = goalReached;
+
+        clearPath();
     }
-    path.reverse(); 
 
-    for (const [row, col] of path) {
-        const box = document.querySelector(`.box[data-row='${row}'][data-col='${col}']`);
-        if (!box.classList.contains("start") && !box.classList.contains("goal")) {
+    highlightFinalPath();
+    restoreOriginalGoals();
+}
+
+function highlightFinalPath() {
+    for (const [r, c] of fullPath) {
+        const isOriginalGoal = originalGoals.some(g => g[0] === r && g[1] === c);
+        if (isOriginalGoal) continue;
+
+        const box = document.querySelector(`.box[data-row='${r}'][data-col='${c}']`);
+        if (box && !box.classList.contains("start")) {
             box.classList.add("path");
-            await new Promise(r => setTimeout(r, 50));
         }
     }
+}
 
+function restoreOriginalGoals() {
+    for (const [r, c] of originalGoals) {
+        const box = document.querySelector(`.box[data-row='${r}'][data-col='${c}']`);
+        if (!box) continue;
+        box.classList.remove("path");
+        box.classList.add("goal");
+    }
 }
 
 createGrid(getGridSize());
 applySize.addEventListener("click", () => createGrid(getGridSize()));
-runButton.addEventListener("click", bfs);
+runButton.addEventListener("click", multiBFS);
