@@ -77,9 +77,15 @@ function createGrid(size) {
 
 function getGridSize() {
     let size = parseInt(gridSize.value);
-    if (isNaN(size)) size = 5;
-    if (size < 3) size = 3;
-    if (size > 16) size = 16;
+    if (isNaN(size)) {
+        size = 5;
+    }
+    if (size < 3) {
+        size = 3;
+    }
+    if (size > 16) {
+        size = 16;
+    }
     return size;
 }
 
@@ -193,13 +199,17 @@ async function bfs(start, maxMoves) {
 async function multiBFS() {
     let { start, goals } = getGridArray();
     let movesLeft = parseInt(moveNumber.value);
-    if (isNaN(movesLeft)) movesLeft = 0;
+    if (isNaN(movesLeft)) {
+        movesLeft = 0;
+    }
     let currentPos = start;
     fullPath = [];
 
     while (movesLeft > 0 && goals.length > 0) {
         const result = await bfs(currentPos, movesLeft);
-        if (!result) break;
+        if (!result) {
+            break;
+        }
 
         const { goalReached, distanceUsed, path } = result;
 
@@ -215,8 +225,10 @@ async function multiBFS() {
         goals = goals.filter(g => !(g[0] === goalReached[0] && g[1] === goalReached[1]));
 
         const reachedBox = document.querySelector(`.box[data-row='${goalReached[0]}'][data-col='${goalReached[1]}']`);
-        if (reachedBox) reachedBox.classList.remove("goal");
-
+        if (reachedBox) {
+            reachedBox.classList.remove("goal");
+        }
+        
         currentPos = goalReached;
 
         clearPath();
@@ -229,7 +241,9 @@ async function multiBFS() {
 function highlightFinalPath() {
     for (const [r, c] of fullPath) {
         const isOriginalGoal = originalGoals.some(g => g[0] === r && g[1] === c);
-        if (isOriginalGoal) continue;
+        if (isOriginalGoal) {
+            continue;
+        }
 
         const box = document.querySelector(`.box[data-row='${r}'][data-col='${c}']`);
         if (box && !box.classList.contains("start")) {
@@ -241,7 +255,9 @@ function highlightFinalPath() {
 function restoreOriginalGoals() {
     for (const [r, c] of originalGoals) {
         const box = document.querySelector(`.box[data-row='${r}'][data-col='${c}']`);
-        if (!box) continue;
+        if (!box) {
+            continue;
+        }
         box.classList.remove("path");
         box.classList.add("goal");
     }
